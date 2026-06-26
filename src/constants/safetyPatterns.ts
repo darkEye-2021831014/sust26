@@ -25,6 +25,16 @@ export const THIRD_PARTY_CONTACT_PATTERNS: RegExp[] = [
   /\b(?:whats?app|imo|telegram|viber|signal)\s*[:\-]?\s*[\+\d]/i,
 ];
 
+/** Patterns for "agent will call you" type language — explicitly forbidden
+ *  by the rubric (3.4 "no third-party contacts"). Replace with a generic
+ *  "we will reach out through official channels" phrasing. */
+export const AGENT_WILL_CALL_PATTERNS: RegExp[] = [
+  /\b(?:our\s+)?(?:support|service|customer\s+service|helpdesk|helpline)\s+(?:agent|representative|team|executive|officer)\s+will\s+(?:call|contact|reach|phone)\s+(?:you|back|shortly)\b/i,
+  /\bwe['\u2019]?ll\s+(?:call|phone|ring|contact)\s+(?:you|back)\b/i,
+  /\bwe\s+will\s+(?:call|phone|ring|contact)\s+(?:you|back)\b/i,
+  /\b(?:agent|representative|officer)\s+will\s+(?:call|contact|reach)\s+(?:you|back|shortly|you\s+shortly)\b/i,
+];
+
 /** URL pattern for any URL inside a reply. */
 export const URL_PATTERN: RegExp = /\b(?:https?:\/\/|www\.)\S+/gi;
 

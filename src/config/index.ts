@@ -2,6 +2,11 @@
  * Centralized configuration loader.
  * Reads process.env once, validates types, and exposes a frozen config object.
  * No other file in the codebase should read process.env directly.
+ *
+ * IMPORTANT: this module is imported during `next build` (page-data collection),
+ * where Render does NOT yet inject runtime env vars. Therefore all env vars
+ * must be OPTIONAL at module-load time. Production-required checks (e.g.
+ * MONGODB_URI) are deferred to runtime via `assertProductionEnv()`.
  */
 
 import { AIProvider } from '@/constants/enums';
@@ -87,16 +92,6 @@ function loadConfig(): AppConfig {
   const provider = (process.env.AI_PROVIDER ?? AIProvider.PRIMARY) as AIProvider;
   const isProduction = nodeEnv === 'production';
 
-  if (isProduction && !process.env.MONGODB_URI) {
-    // Fail fast: a missing MongoDB URI in production is a misconfiguration
-    // that will silently degrade audit persistence. The local default
-    // (mongodb://localhost:27017/...) is meaningless in a hosted env.
-    throw new Error(
-      'MONGODB_URI is required when NODE_ENV=production. ' +
-        'Set it to a reachable MongoDB Atlas / hosted cluster URI.',
-    );
-  }
-
   const cfg: AppConfig = {
     port: getEnvInt('PORT', 8000),
     nodeEnv,
@@ -156,3 +151,21 @@ function loadConfig(): AppConfig {
 const config: AppConfig = loadConfig();
 export default config;
 export type { AppConfig };
+
+/**
+ * Runtime-only environment check. Call from request handlers / startup
+ * (NOT at module-import time, so that `next build` succeeds even when env
+ * vars are not yet injected by the host). Throws a clear error if a
+ * required variable is missing.
+ */
+export function assertProductionEnv(): void {
+  if (!config.isProduction) return;
+  const missing: string[] = [];
+  if (!process.env.MONGODB_URI) missing.push('MONGODB_URI');
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required production environment variable(s): ${missing.join(', ')}. ` +
+        'These must be set in the Render dashboard before the service can start.',
+    );
+  }
+}

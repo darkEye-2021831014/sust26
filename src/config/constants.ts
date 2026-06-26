@@ -46,8 +46,9 @@ export const LLM_TEMPERATURE = 0.2;
 /** Max tokens for LLM responses. */
 export const LLM_MAX_OUTPUT_TOKENS = 1024;
 
-/** Hard ceiling on per-request time — kept under the 30s service limit. */
-export const REQUEST_TIMEOUT_MS = 28000;
+/** Hard ceiling on per-request time — matches the 30s service limit
+ *  required by the evaluation rubric (each request must return in <30s). */
+export const REQUEST_TIMEOUT_MS = 30000;
 
 /** Default character cap for log lines of large payloads (e.g. complaints). */
 export const LOG_PAYLOAD_TRUNCATE = 500;

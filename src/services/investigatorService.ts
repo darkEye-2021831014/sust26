@@ -251,7 +251,14 @@ export async function investigateTicket(request: ITicketRequest): Promise<IInves
   if (!injection.isSafe) flags.push(ReasonCodes.PROMPT_INJECTION_DETECTED);
 
   const phishing = detectPhishing(request.complaint);
-  if (!phishing.isSafe) flags.push(ReasonCodes.PHISHING_DETECTED);
+  if (!phishing.isSafe) {
+    flags.push(ReasonCodes.PHISHING_DETECTED);
+    // Rubric 4.3: phishing is a fraud signal — log so fraud team can act.
+    logger.warn(
+      { ticket_id: request.ticket_id },
+      'Phishing / social-engineering signal detected — escalating to fraud_risk',
+    );
+  }
 
   // 2. Match a transaction.
   const match = matchTransaction(request);
@@ -270,7 +277,20 @@ export async function investigateTicket(request: ITicketRequest): Promise<IInves
   if (!match.transaction) reasonCodes.push(ReasonCodes.NO_TRANSACTION_HISTORY);
   if (verdict === EvidenceVerdict.INSUFFICIENT_DATA) reasonCodes.push(ReasonCodes.INSUFFICIENT_DATA);
   const matchedTxnAmount = match.transaction?.amount ?? 0;
-  if (matchedTxnAmount >= HIGH_VALUE_THRESHOLD_BDT) reasonCodes.push(ReasonCodes.HIGH_VALUE);
+  if (matchedTxnAmount >= HIGH_VALUE_THRESHOLD_BDT) {
+    reasonCodes.push(ReasonCodes.HIGH_VALUE);
+    // Rubric 4.3: warn about high-value transfers so they are observable
+    // in logs even if the response gets cached or rate-limited downstream.
+    logger.warn(
+      {
+        ticket_id: request.ticket_id,
+        amount_bdt: matchedTxnAmount,
+        threshold_bdt: HIGH_VALUE_THRESHOLD_BDT,
+        transaction_id: match.transaction?.transaction_id,
+      },
+      'High-value transfer flagged for mandatory human review',
+    );
+  }
   if (matchedTxnAmount > 0 && matchedTxnAmount < LOW_VALUE_THRESHOLD_BDT) reasonCodes.push(ReasonCodes.LOW_VALUE);
   if (!injection.isSafe) reasonCodes.push(ReasonCodes.PROMPT_INJECTION_DETECTED);
 

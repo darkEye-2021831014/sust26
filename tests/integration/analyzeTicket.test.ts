@@ -974,4 +974,75 @@ describe('POST /analyze-ticket — full route handler', () => {
       expect(mod.runtime).toBe('nodejs');
     });
   });
+
+  // ========================================================================
+  // AUDIT PERSISTENCE (rubric §3.5: every processed ticket must be logged)
+  // ========================================================================
+  describe('Audit persistence', () => {
+    it('calls auditTicket exactly once per successful analysis', async () => {
+      const { auditTicket } = await import('@/services/auditService');
+      (auditTicket as jest.Mock).mockClear();
+      const req = makeRouteRequest({
+        ticket_id: 'TKT-AUDIT-1',
+        complaint: 'I sent 500 taka to a wrong number.',
+        transaction_history: [
+          {
+            transaction_id: 'TXN-AUDIT-1',
+            timestamp: '2026-06-26T14:08:22Z',
+            type: 'transfer',
+            amount: 500,
+            counterparty: '+8801719876543',
+            status: 'completed',
+          },
+        ],
+      });
+      const res = await analyzePOST(req as unknown as import('next/server').NextRequest);
+      expect(res.status).toBe(200);
+      expect(auditTicket).toHaveBeenCalledTimes(1);
+      const call = (auditTicket as jest.Mock).mock.calls[0][0];
+      expect(call.request.ticket_id).toBe('TKT-AUDIT-1');
+      expect(call.response.ticket_id).toBe('TKT-AUDIT-1');
+      expect(typeof call.processingMs).toBe('number');
+      expect(call.processingMs).toBeGreaterThanOrEqual(0);
+      expect(call.requestId).toBeDefined();
+    });
+
+    it('audit log includes the full request and full response', async () => {
+      const { auditTicket } = await import('@/services/auditService');
+      (auditTicket as jest.Mock).mockClear();
+      const req = makeRouteRequest({
+        ticket_id: 'TKT-AUDIT-2',
+        complaint: 'My payment failed.',
+        language: 'en',
+        channel: 'in_app_chat',
+        user_type: 'customer',
+        transaction_history: [
+          {
+            transaction_id: 'TXN-AUDIT-2',
+            timestamp: '2026-06-26T14:08:22Z',
+            type: 'payment',
+            amount: 1500,
+            counterparty: '+8801719876543',
+            status: 'failed',
+          },
+        ],
+      });
+      const res = await analyzePOST(req as unknown as import('next/server').NextRequest);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(auditTicket).toHaveBeenCalledTimes(1);
+      const call = (auditTicket as jest.Mock).mock.calls[0][0];
+      // Full request is captured.
+      expect(call.request.transaction_history).toHaveLength(1);
+      expect(call.request.transaction_history[0].transaction_id).toBe('TXN-AUDIT-2');
+      // Full response is captured with all 12 rubric fields.
+      expect(call.response.case_type).toBe(body.data.case_type);
+      expect(call.response.severity).toBe(body.data.severity);
+      expect(call.response.department).toBe(body.data.department);
+      expect(call.response.evidence_verdict).toBe(body.data.evidence_verdict);
+      expect(call.response.confidence).toBe(body.data.confidence);
+      expect(typeof call.response.customer_reply).toBe('string');
+      expect(typeof call.response.agent_summary).toBe('string');
+    });
+  });
 });

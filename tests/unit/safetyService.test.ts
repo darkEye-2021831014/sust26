@@ -84,5 +84,45 @@ describe('safetyService', () => {
       expect(out.customer_reply.toLowerCase()).not.toMatch(/please\s+send\s+(?:us\s+)?(?:your\s+)?(?:password|pin|otp)/);
       expect(out.customer_reply.toLowerCase()).not.toMatch(/please\s+share\s+your\s+(?:pin|otp|password)/);
     });
+
+    it('never says "support agent will call you" — replaces with official channels', () => {
+      const inputs = [
+        'Our support agent will call you shortly to verify.',
+        'A customer service representative will contact you.',
+        'We will call you back in 5 minutes.',
+        'Our agent will reach you.',
+      ];
+      for (const customer_reply of inputs) {
+        const out = sanitizeOutput({
+          customer_reply,
+          recommended_next_action: 'Review the case.',
+        });
+        const text = out.customer_reply.toLowerCase();
+        expect(text).not.toMatch(/agent\s+will\s+(?:call|contact|reach)/);
+        expect(text).not.toMatch(/we('|ll|\s+will)\s+(?:call|phone|ring)\s+(?:you|back)/);
+        expect(text).toMatch(/official\s+channels?/);
+        expect(out.wasRegenerated).toBe(true);
+      }
+    });
+
+    it('strips third-party phone numbers and URLs from the reply', () => {
+      const out = sanitizeOutput({
+        customer_reply: 'Visit https://example.com or call +8801712345678 for help.',
+        recommended_next_action: 'Contact the merchant.',
+      });
+      expect(out.customer_reply).not.toMatch(/https?:\/\//);
+      expect(out.customer_reply).not.toMatch(/\+8801712345678/);
+      expect(out.wasRegenerated).toBe(true);
+    });
+
+    it('neutralizes "guaranteed refund" type language', () => {
+      const out = sanitizeOutput({
+        customer_reply: 'Your refund is guaranteed and will be processed today.',
+        recommended_next_action: 'Refund approved.',
+      });
+      const text = out.customer_reply.toLowerCase();
+      expect(text).not.toMatch(/refund\s+is\s+guaranteed/);
+      expect(text).not.toMatch(/refund\s+approved/);
+    });
   });
 });

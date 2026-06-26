@@ -9,6 +9,7 @@
  */
 
 import {
+  AGENT_WILL_CALL_PATTERNS,
   CREDENTIAL_REQUEST_PATTERNS,
   PHISHING_KEYWORDS,
   PROMPT_INJECTION_PATTERNS,
@@ -185,6 +186,32 @@ export function sanitizeOutput(input: {
       message: 'Unofficial contact channel detected in customer reply — stripped.',
     });
     reply = stripThirdPartyContacts(reply);
+    wasRegenerated = true;
+  }
+
+  // 3b. "Support agent will call you" style language → strip. Per the rubric,
+  // we never promise that a human will phone the customer; we only commit
+  // to contact through official channels.
+  const hadAgentWillCall = AGENT_WILL_CALL_PATTERNS.some((p) => p.test(reply));
+  if (hadAgentWillCall) {
+    flags.push({
+      code: ReasonCodes.SAFETY_REPLY_REGENERATED,
+      message: '"Agent will call" language detected in customer reply — removed.',
+    });
+    for (const p of AGENT_WILL_CALL_PATTERNS) {
+      reply = reply.replace(p, 'we will contact you through official channels');
+    }
+    wasRegenerated = true;
+  }
+  const hadAgentWillCallAction = AGENT_WILL_CALL_PATTERNS.some((p) => p.test(action));
+  if (hadAgentWillCallAction) {
+    flags.push({
+      code: ReasonCodes.SAFETY_REPLY_REGENERATED,
+      message: '"Agent will call" language detected in next action — removed.',
+    });
+    for (const p of AGENT_WILL_CALL_PATTERNS) {
+      action = action.replace(p, 'contact the customer through official channels');
+    }
     wasRegenerated = true;
   }
 
