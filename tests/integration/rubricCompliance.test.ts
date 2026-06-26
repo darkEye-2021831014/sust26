@@ -27,6 +27,7 @@ import { POST as batchPOSTAlias } from '@/app/analyze-ticket-batch/route';
 import { GET as healthGET } from '@/app/api/health/route';
 import { GET as healthGETAlias } from '@/app/health/route';
 import { GET as ticketGET } from '@/app/api/tickets/[ticket_id]/route';
+import { GET as ticketGETAlias } from '@/app/tickets/[ticket_id]/route';
 import { ITicketResponse } from '@/interfaces/ITicketResponse';
 
 jest.mock('@/lib/mongodb', () => ({
@@ -119,6 +120,17 @@ describe('Rubric §3.1 — endpoints exist at the documented paths', () => {
     expect(body.success).toBe(true);
     expect(body.data).toHaveProperty('ticket_id');
     expect(body.data).toHaveProperty('records');
+  });
+
+  it('GET /tickets/:ticket_id (top-level alias)', async () => {
+    const req = new Request('http://localhost:8000/tickets/TKT-RUBRIC-1', { method: 'GET' });
+    const res = await ticketGETAlias(req, {
+      params: Promise.resolve({ ticket_id: 'TKT-RUBRIC-1' }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('ticket_id');
   });
 });
 
