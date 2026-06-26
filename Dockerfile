@@ -29,7 +29,8 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public 2>/dev/null || true
+# public/ is optional for this project; guard the copy with a shell that tolerates a missing source
+RUN sh -c 'if [ -d /app/public ]; then cp -r /app/public ./public; else mkdir -p ./public; fi'
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
